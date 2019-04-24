@@ -102,3 +102,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+corrected.csv
+kddcup.data.corrected.csv
+kddcup.data_10_percent_corrected.csv
