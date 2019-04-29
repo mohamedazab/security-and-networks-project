@@ -5,3 +5,4 @@ Module.*
 modules.*
 .hello.*
 .vscode
+.tmp*
