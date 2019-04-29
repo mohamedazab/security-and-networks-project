@@ -15,6 +15,8 @@
     > sudo insmod hello.ko
 - log kernal output (in another terminal)
 
+    > sudo su -
+
     > cd /var/log
 
     > tail - f kern.log
