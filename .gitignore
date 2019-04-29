@@ -3,3 +3,5 @@ hello.mod.*
 hello.o
 Module.*
 modules.*
+.hello.*
+.vscode
