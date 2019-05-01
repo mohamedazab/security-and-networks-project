@@ -1,8 +1,8 @@
-hello.ko
-hello.mod.*
-hello.o
+*.ko
+*.mod.*
+*.o
 Module.*
 modules.*
-.hello.*
+.*.*
 .vscode
 .tmp*
