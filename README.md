@@ -11,8 +11,9 @@
 
 - start:
     > sudo make
+    gcc client -o client.c
 
-    > sudo insmod hello.ko
+    > sudo insmod rootkit.ko
 - log kernal output (in another terminal)
 
     > sudo su -
