@@ -1,12 +1,16 @@
 # security-and-networks-project
 
-## Tool: rootkit for linux
+## Tool: rootkit for linux supports kernel version 4.0.0-..
+### Disclaimer: use virtual machine inorder not to damage your PC
+### The kernel may crash the OS
+
 
 ## functionalities:
     - [X] Hidden from modules
       - Can not be found using lsmod and system commands
     - [X] Hide a particular process from the process list
-    - [X] provide user with root acces
+    - [X] provide user with root access
+    - [X] keylogger
 ## How to run?
 
 - start:
