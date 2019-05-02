@@ -5,8 +5,8 @@
 ## functionalities:
     - [X] Hidden from modules
       - Can not be found using lsmod and system commands
-    - [] Hide a particular process from the process list
-    - [] provide user with root acces
+    - [X] Hide a particular process from the process list
+    - [X] provide user with root acces
 ## How to run?
 
 - start:
